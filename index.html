@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+<meta charset="UTF-8">
+<title>Til enden av verden</title>
+<style>
+  body {
+    margin: 0;
+    overflow: hidden;
+    background: #87CEEB;
+    font-family: sans-serif;
+  }
+  canvas {
+    display: block;
+    background: #87CEEB; /* Himmelblå */
+  }
+</style>
+</head>
+<body>
+<canvas id="gameCanvas"></canvas>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+// Kamera
+let cameraX = 0;
+
+// Spillvariabler
+const gravity = 0.8;
+const player = {
+  x: 50,
+  y: canvas.height - 150,
+  width: 50,
+  height: 50,
+  dy: 0,
+  speed: 5,
+  jumping: false,
+  ducking: false
+};
+
+// Terreng: plattformer
+const terrain = [
+  {x:0, y:canvas.height-100, width:400, height:100, color:'green'},
+  {x:500, y:canvas.height-200, width:200, height:100, color:'green'},
+  {x:800, y:canvas.height-150, width:150, height:50, color:'green'},
+  {x:1000, y:canvas.height-250, width:200, height:50, color:'green'},
+  {x:1300, y:canvas.height-120, width:300, height:120, color:'green'}
+];
+
+// Trær
+let trees = [
+  {x:550, y:canvas.height-250, width:30, height:50, chopped:false},
+  {x:1100, y:canvas.height-300, width:30, height:50, chopped:false},
+  {x:1350, y:canvas.height-170, width:30, height:50, chopped:false}
+];
+
+// Flagget
+const flag = {x:1550, y:canvas.height-170, width:30, height:50};
+
+// Tastaturkontroll
+const keys = {};
+document.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
+document.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+
+// Kollisjon med plattformer
+function checkCollision(rect, terrain) {
+  for (let t of terrain) {
+    if (rect.x < t.x + t.width &&
+        rect.x + rect.width > t.x &&
+        rect.y < t.y + t.height &&
+        rect.y + rect.height > t.y) {
+      return t;
+    }
+  }
+  return null;
+}
+
+// Spill loop
+function gameLoop() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Bakgrunn: enkel lagvis parallax
+  ctx.fillStyle = '#87CEEB';
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle = '#b0e57c';
+  ctx.fillRect(0, canvas.height-100, canvas.width, 100); // gress
+
+  // Spillbevegelse
+  if (keys['a']) player.x -= player.speed;
+  if (keys['d']) player.x += player.speed;
+  if (keys['w'] && !player.jumping) {
+    player.dy = -15;
+    player.jumping = true;
+  }
+  player.ducking = keys['s'];
+
+  // Hugge trær
+  if (keys[' ']) {
+    for (let tree of trees) {
+      if (!tree.chopped &&
+          player.x + player.width > tree.x &&
+          player.x < tree.x + tree.width &&
+          player.y + player.height > tree.y &&
+          player.y < tree.y + tree.height) {
+        tree.chopped = true;
+      }
+    }
+  }
+
+  // Gravitasjon
+  player.dy += gravity;
+  player.y += player.dy;
+
+  // Kollisjon med terreng
+  const ground = checkCollision(player, terrain);
+  if (ground) {
+    player.y = ground.y - player.height;
+    player.dy = 0;
+    player.jumping = false;
+  }
+
+  // Kamera følger spilleren
+  cameraX = player.x - 150;
+
+  ctx.save();
+  ctx.translate(-cameraX,0);
+
+  // Tegn plattformer
+  for (let t of terrain) {
+    ctx.fillStyle = t.color;
+    ctx.fillRect(t.x, t.y, t.width, t.height);
+  }
+
+  // Tegn trær
+  for (let tree of trees) {
+    if (!tree.chopped) {
+      ctx.fillStyle = 'brown';
+      ctx.fillRect(tree.x, tree.y, tree.width, tree.height);
+      ctx.fillStyle = 'green';
+      ctx.fillRect(tree.x-10, tree.y-30, tree.width+20, 30);
+    }
+  }
+
+  // Tegn flagg
+  ctx.fillStyle = 'red';
+  ctx.fillRect(flag.x, flag.y, flag.width, flag.height);
+
+  // Tegn spiller
+  ctx.fillStyle = 'blue';
+  if (player.ducking) {
+    ctx.fillRect(player.x, player.y + 25, player.width, player.height - 25);
+  } else {
+    ctx.fillRect(player.x, player.y, player.width, player.height);
+  }
+
+  ctx.restore();
+
+  // Sjekk seier
+  if (player.x + player.width > flag.x &&
+      player.y + player.height > flag.y) {
+    ctx.fillStyle = 'yellow';
+    ctx.font = '50px Arial';
+    ctx.fillText('🎉 Du vant! 🎉', canvas.width/2 - 150, canvas.height/2);
+    return; // stopper spillet
+  }
+
+  requestAnimationFrame(gameLoop);
+}
+
+gameLoop();
+</script>
+</body>
+</html>
