@@ -2,7 +2,7 @@
 <html lang="no">
 <head>
 <meta charset="UTF-8">
-<title>Til enden av verden</title>
+<title>Til enden av verden - Multi Bane</title>
 <style>
   body {
     margin: 0;
@@ -12,7 +12,7 @@
   }
   canvas {
     display: block;
-    background: #87CEEB; /* Himmelblå */
+    background: #87CEEB;
   }
 </style>
 </head>
@@ -25,47 +25,74 @@ const ctx = canvas.getContext('2d');
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
-// Kamera
 let cameraX = 0;
+let currentLevel = 0;
 
 // Spillvariabler
 const gravity = 0.8;
 const player = {
   x: 50,
   y: canvas.height - 150,
-  width: 50,
-  height: 50,
+  width: 40,
+  height: 60,
   dy: 0,
   speed: 5,
   jumping: false,
   ducking: false
 };
 
-// Terreng: plattformer
-const terrain = [
-  {x:0, y:canvas.height-100, width:400, height:100, color:'green'},
-  {x:500, y:canvas.height-200, width:200, height:100, color:'green'},
-  {x:800, y:canvas.height-150, width:150, height:50, color:'green'},
-  {x:1000, y:canvas.height-250, width:200, height:50, color:'green'},
-  {x:1300, y:canvas.height-120, width:300, height:120, color:'green'}
+// Flere baner
+const levels = [
+  {
+    terrain: [
+      {x:0, y:canvas.height-100, width:400, height:100, color:'green'},
+      {x:500, y:canvas.height-200, width:200, height:100, color:'green'},
+      {x:800, y:canvas.height-150, width:150, height:50, color:'green'}
+    ],
+    trees: [
+      {x:550, y:canvas.height-250, width:30, height:50, chopped:false},
+    ],
+    flag: {x:950, y:canvas.height-200, width:30, height:50}
+  },
+  {
+    terrain: [
+      {x:0, y:canvas.height-120, width:300, height:120, color:'green'},
+      {x:350, y:canvas.height-180, width:250, height:60, color:'green'},
+      {x:650, y:canvas.height-250, width:200, height:50, color:'green'},
+      {x:900, y:canvas.height-130, width:300, height:130, color:'green'}
+    ],
+    trees: [
+      {x:360, y:canvas.height-230, width:30, height:50, chopped:false},
+      {x:700, y:canvas.height-300, width:30, height:50, chopped:false},
+    ],
+    flag: {x:1100, y:canvas.height-180, width:30, height:50}
+  },
+  {
+    terrain: [
+      {x:0, y:canvas.height-100, width:500, height:100, color:'green'},
+      {x:600, y:canvas.height-220, width:200, height:120, color:'green'},
+      {x:850, y:canvas.height-150, width:150, height:50, color:'green'},
+      {x:1050, y:canvas.height-200, width:300, height:100, color:'green'}
+    ],
+    trees: [
+      {x:650, y:canvas.height-270, width:30, height:50, chopped:false},
+      {x:900, y:canvas.height-200, width:30, height:50, chopped:false},
+      {x:1100, y:canvas.height-250, width:30, height:50, chopped:false}
+    ],
+    flag: {x:1250, y:canvas.height-150, width:30, height:50}
+  }
 ];
 
-// Trær
-let trees = [
-  {x:550, y:canvas.height-250, width:30, height:50, chopped:false},
-  {x:1100, y:canvas.height-300, width:30, height:50, chopped:false},
-  {x:1350, y:canvas.height-170, width:30, height:50, chopped:false}
-];
-
-// Flagget
-const flag = {x:1550, y:canvas.height-170, width:30, height:50};
+let terrain = levels[currentLevel].terrain;
+let trees = levels[currentLevel].trees;
+let flag = levels[currentLevel].flag;
 
 // Tastaturkontroll
 const keys = {};
 document.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
 document.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
 
-// Kollisjon med plattformer
+// Kollisjon
 function checkCollision(rect, terrain) {
   for (let t of terrain) {
     if (rect.x < t.x + t.width &&
@@ -78,17 +105,42 @@ function checkCollision(rect, terrain) {
   return null;
 }
 
+// Tegn spiller som mann
+function drawPlayer() {
+  const px = player.x;
+  const py = player.y;
+  // Kropp
+  ctx.fillStyle = 'blue';
+  ctx.fillRect(px, py + 10, player.width, player.height - 10);
+  // Hode
+  ctx.fillStyle = '#f1c27d';
+  ctx.beginPath();
+  ctx.arc(px + player.width/2, py + 10, 10, 0, Math.PI * 2);
+  ctx.fill();
+  // Ben (hvis ikke dukker)
+  if (!player.ducking) {
+    ctx.strokeStyle = 'black';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(px + 10, py + player.height);
+    ctx.lineTo(px + 10, py + player.height + 20);
+    ctx.moveTo(px + 30, py + player.height);
+    ctx.lineTo(px + 30, py + player.height + 20);
+    ctx.stroke();
+  }
+}
+
 // Spill loop
 function gameLoop() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  // Bakgrunn: enkel lagvis parallax
+  // Bakgrunn
   ctx.fillStyle = '#87CEEB';
   ctx.fillRect(0,0,canvas.width,canvas.height);
   ctx.fillStyle = '#b0e57c';
-  ctx.fillRect(0, canvas.height-100, canvas.width, 100); // gress
+  ctx.fillRect(0, canvas.height-100, canvas.width, 100);
 
-  // Spillbevegelse
+  // Bevegelse
   if (keys['a']) player.x -= player.speed;
   if (keys['d']) player.x += player.speed;
   if (keys['w'] && !player.jumping) {
@@ -114,7 +166,7 @@ function gameLoop() {
   player.dy += gravity;
   player.y += player.dy;
 
-  // Kollisjon med terreng
+  // Kollisjon
   const ground = checkCollision(player, terrain);
   if (ground) {
     player.y = ground.y - player.height;
@@ -122,49 +174,57 @@ function gameLoop() {
     player.jumping = false;
   }
 
-  // Kamera følger spilleren
+  // Kamera
   cameraX = player.x - 150;
 
   ctx.save();
   ctx.translate(-cameraX,0);
 
-  // Tegn plattformer
+  // Tegn terreng
   for (let t of terrain) {
     ctx.fillStyle = t.color;
     ctx.fillRect(t.x, t.y, t.width, t.height);
   }
 
-  // Tegn trær
+  // Tegn trær med blader
   for (let tree of trees) {
     if (!tree.chopped) {
       ctx.fillStyle = 'brown';
       ctx.fillRect(tree.x, tree.y, tree.width, tree.height);
       ctx.fillStyle = 'green';
-      ctx.fillRect(tree.x-10, tree.y-30, tree.width+20, 30);
+      ctx.beginPath();
+      ctx.arc(tree.x + tree.width/2, tree.y - 10, 20, 0, Math.PI*2);
+      ctx.fill();
     }
   }
 
   // Tegn flagg
   ctx.fillStyle = 'red';
   ctx.fillRect(flag.x, flag.y, flag.width, flag.height);
+  ctx.fillStyle = 'white';
+  ctx.fillRect(flag.x + 5, flag.y + 5, 10, 40);
 
   // Tegn spiller
-  ctx.fillStyle = 'blue';
-  if (player.ducking) {
-    ctx.fillRect(player.x, player.y + 25, player.width, player.height - 25);
-  } else {
-    ctx.fillRect(player.x, player.y, player.width, player.height);
-  }
+  drawPlayer();
 
   ctx.restore();
 
   // Sjekk seier
   if (player.x + player.width > flag.x &&
       player.y + player.height > flag.y) {
-    ctx.fillStyle = 'yellow';
-    ctx.font = '50px Arial';
-    ctx.fillText('🎉 Du vant! 🎉', canvas.width/2 - 150, canvas.height/2);
-    return; // stopper spillet
+    currentLevel++;
+    if (currentLevel < levels.length) {
+      terrain = levels[currentLevel].terrain;
+      trees = levels[currentLevel].trees;
+      flag = levels[currentLevel].flag;
+      player.x = 50;
+      player.y = canvas.height - 150;
+    } else {
+      ctx.fillStyle = 'yellow';
+      ctx.font = '50px Arial';
+      ctx.fillText('🎉 Du fullførte alle banene! 🎉', canvas.width/2 - 300, canvas.height/2);
+      return; // stopper spillet
+    }
   }
 
   requestAnimationFrame(gameLoop);
